@@ -22,7 +22,7 @@ public class DBLink {
 				.addContactPoint(server).build();
 		
 		session = cluster.connect();
-		for(int z = 0; z < 25;z++) {
+		for(int z = 0; z < 1;z++) {
 			session.execute("DROP KEYSPACE IF EXISTS nodes");
 			session.execute("CREATE KEYSPACE nodes WITH REPLICATION = { 'class' : 'SimpleStrategy', 'replication_factor' : 1 };");
 			session.execute("CREATE TABLE nodes.tables (id varchar PRIMARY KEY, tables varchar);");
@@ -36,16 +36,13 @@ public class DBLink {
 			buildRelationTable("/home/dna/Desktop/Graph/DataDump/edges.csv");
 			timers.add(System.nanoTime());
 			
-			/*
+			
 			String startNode = "29ff96320eb348e48f7293e96bf8458e";		//PSU
 			String endNode = "48453f8815c94df1a96753c326ad500d";		//Storage Disk
-			//pointToPoint(startNode, endNode);
-	
-			ResultSet rs = session.execute("SELECT Source FROM nodes.edges WHERE Target = 'V76FN0516001' ALLOW FILTERING;");
-			for(Row row : rs) {
-				System.out.println(row.getString("Source"));
-			}
-			*/
+			timers.add(System.nanoTime());
+			pointToPoint(startNode, endNode);
+			timers.add(System.nanoTime());
+			
 			printTimers(timers);
 		}
 		
@@ -58,34 +55,33 @@ public class DBLink {
 		ResultSet rs2 = session.execute("SELECT Source FROM nodes.edges WHERE Target = '" + id2 + "' ALLOW FILTERING;");
 		ArrayList<String> ids = new ArrayList<String>();
 		ids.add(id1);
-		for(Row row : rs1) {
-			ids.add(row.getString(0));
-			ids = pointHelper(ids);
+		
+		while(!rs1.isExhausted()) {
+			for(Row r : rs1) {
+				ids.add(r.getString("Source"));
+			}
+			rs1 = session.execute("SELECT Source FROM nodes.edges WHERE Target = '" + ids.get(ids.size() - 1) + "' ALLOW FILTERING;");
 		}
-		ids.add(id2);
-		for(Row row: rs2) {
-			ids.add(row.getString(0));
-			ids = pointHelper(ids);
+		
+		ArrayList<String> ids0 = new ArrayList<String>();
+		ids0.add(id2);
+		while(!rs2.isExhausted()) {
+			for(Row r : rs2) {
+				ids0.add(r.getString("Source"));
+			}
+			rs2 = session.execute("SELECT Source FROM nodes.edges WHERE Target = '" + ids0.get(ids0.size() - 1) + "' ALLOW FILTERING;");
 		}
+		
+		for(int i = ids0.size() - 2; i >= 0; i--) {
+			ids.add(ids0.get(i));
+		}
+		
 		for(String s : ids) {
 			System.out.println(s);
 		}
 	}
 	
-	public static ArrayList<String> pointHelper(ArrayList<String> ids){
-		ResultSet rs = session.execute("SELECT Source FROM nodes.edges WHERE Target = '" + ids.get(ids.size() - 1) + "' ALLOW FILTERING;");
-		if(rs.all().size() > 0) {
-			for(Row row : rs) {
-				ids.add(row.getString(0));
-				pointHelper(ids);
-			}
-		}
-		else {
-			return ids;
-		}
-		return ids;
-	}
-	
+
 	public static void printTimers(ArrayList<Long> timers)
 	{
 		for(int i = 0; i < timers.size(); i += 2) {
